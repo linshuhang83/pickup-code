@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="取件码">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <link rel="icon" href="/icon-192.png">
+  <title>取件码</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="topbar">
+      <div class="topbar-row">
+        <div class="logo">
+          <h1>取件码</h1>
+          <span class="badge" id="badge"></span>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-btn" data-action="open-add" title="手动添加">＋</button>
+          <button class="icon-btn" data-action="open-settings" title="设置">⚙</button>
+        </div>
+      </div>
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="pending">未取件</button>
+        <button class="tab" data-tab="collected">已取件</button>
+      </nav>
+    </header>
+
+    <main id="list-view" class="list"></main>
+
+    <main id="settings-view" class="settings-page" hidden>
+      <h2>设置</h2>
+      <div class="setting-card">
+        <p>手机锁屏提醒（可选）</p>
+        <input id="bark-key" placeholder="如 abcdef（网址最后一段字母数字）">
+        <div class="hint">
+          设置后，新取件码到达时手机会直接弹出提醒，不用打开网页也能看到。
+          <br><br>
+          如何设置（约 1 分钟）：
+          <br>1. 在 iPhone 的 App Store 搜索「Bark」，安装这个免费 App
+          <br>2. 打开 Bark，首页顶部会显示一行网址，例如 https://api.day.app/abcdef
+          <br>3. 复制网址最后一段字母数字（上面例子中的 abcdef），粘贴到上方输入框
+          <br>4. 点击下方「发一条测试提醒」，手机收到提醒就说明设置成功
+          <br><br>
+          不想设置也没关系，网页功能完全不受影响。
+        </div>
+      </div>
+      <div class="setting-card">
+        <p>访问口令（可选）</p>
+        <input id="access-token" type="password" placeholder="留空则无需口令">
+        <div class="hint">
+          仅当电脑端服务启动时配置了访问口令（QJK_TOKEN）才需要填写，
+          且必须与服务设置的口令一致。配置后，手机和电脑访问本网页都要先在此输入口令。
+          口令只保存在当前设备的浏览器中，换设备需重新输入。
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" data-action="test-notify">发一条测试提醒</button>
+    </main>
+
+    <div id="add-overlay" class="overlay" hidden>
+      <div class="sheet">
+        <h2>手动添加取件码</h2>
+        <div class="field">
+          <label>驿站名</label>
+          <input id="add-station" placeholder="如 菜鸟驿站·朝阳花园店">
+        </div>
+        <div class="field">
+          <label>取件码</label>
+          <input id="add-code" placeholder="如 4-1-2345">
+        </div>
+        <div class="sheet-actions">
+          <button class="btn btn-ghost" data-action="close-add">取消</button>
+          <button class="btn btn-primary" data-action="submit-add">添加</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+fastapi~=0.141.0
+uvicorn~=0.52.0
+watchdog~=6.0
+# starlette BadHost CVE-2026-48710 修复版在 1.0.1+；fastapi 依赖其 >=0.40 约束，这里显式锁定安全下限
+starlette>=1.0.1

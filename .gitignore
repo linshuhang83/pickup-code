@@ -1,0 +1,28 @@
+# AI 工具本地配置
+.claude/settings.local.json
+.cursor/
+.aider*
+.continue/
+.cody/
+
+.DS_Store
+*.log
+
+# 第三方技能包（与项目无关，不入库）
+.claude/skills/claude skills/
+.claude/skills/vercel skills/
+.claude/skills/matt skills /
+
+# 密钥和凭证
+*.pem
+*.key
+credentials.json
+.npmrc
+.aws/
+.ssh/
+
+# 运行时数据（短信内容、取件码、设置，含隐私数据不入库）
+data/
+.venv/
+__pycache__/
+.pytest_cache/

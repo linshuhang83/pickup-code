@@ -1,0 +1,13 @@
+{
+  "name": "取件码",
+  "short_name": "取件码",
+  "description": "快递取件码自动获取与提醒",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-180.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
