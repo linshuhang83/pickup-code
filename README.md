@@ -97,7 +97,46 @@ QJK_TOKEN=你的口令 ./scripts/run.sh
 .venv/bin/python -m pytest server/tests/
 ```
 
-82 个测试覆盖：解析（含真实短信样本）、去重（含一条短信多取件码、手动/短信互不干扰）、分页分组排序、监控（游标恢复、混合时间刻度、回填不推送）、状态流转、API、鉴权、Bark 推送（mock 网络）。
+99 个测试覆盖：解析（含虚构化的多平台短信文案样本）、去重（含一条短信多取件码、手动/短信互不干扰）、分页分组排序、监控（游标恢复、混合时间刻度、回填不推送）、状态流转、API、鉴权、Bark 推送（mock 网络）。
+
+## GitHub + Vercel 部署
+
+本应用不能将完整后端运行在 Vercel：iMessage 数据库、SQLite 和短信监听必须保留在 Mac。部署架构为“Vercel 静态前端 + Tailscale Funnel + Mac FastAPI”。
+
+### 1. 启动受保护的 Mac 后端
+
+```bash
+QJK_TOKEN='请使用高强度随机口令' ./scripts/run.sh
+```
+
+不要将真实口令写入仓库。Mac 必须保持开机，且该服务必须持续运行。
+
+### 2. 启用 Tailscale Funnel
+
+安装 Tailscale Standalone macOS 版本，登录后安装 CLI integration，然后执行：
+
+```bash
+tailscale funnel --bg 8787
+tailscale funnel status
+```
+
+首次启用会打开 Funnel 授权页。它只应把 HTTPS 请求转发到 `http://127.0.0.1:8787`。
+
+### 3. 导入 Vercel
+
+1. 将仓库保持为 GitHub Private。
+2. 在 Vercel 导入 GitHub 仓库。
+3. 设置 `Root Directory = web`。
+4. 设置 `Framework Preset = Other`。
+5. 不设置 Build Command，`Output Directory = .`。
+6. 部署后在网页“设置”中填入 Mac 后端使用的同一个访问口令。
+
+### 故障排查
+
+- 页面能打开但数据加载失败：检查 Mac 是否休眠、`scripts/run.sh` 是否运行。
+- 本地能访问但 Vercel 不能：运行 `tailscale funnel status` 检查 Funnel。
+- 返回 `401`：网页保存的访问口令与 Mac 启动口令不一致。
+- Funnel 主机名变更：更新 `web/vercel.json` 中的 Rewrite origin 并重新部署。
 
 ## 技术栈
 

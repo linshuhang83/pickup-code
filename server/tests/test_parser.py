@@ -93,44 +93,44 @@ class TestNegative:
         assert parse_sms(sms) is None
 
 
-class TestRealSmsSamples:
-    """来自用户真实 chat.db 的短信样本。"""
+class TestSmsSamples:
+    """覆盖多平台真实文案结构的虚构短信样本。"""
 
     def test_cainiao_ping_multi_codes(self):
-        sms = "【菜鸟驿站】请凭146-7-7450, 106-2-5266到厦门厦大海韵学生公寓店菜鸟驿站取件"
+        sms = "【菜鸟驿站】请凭146-7-7450, 106-2-5266到星河花园东门店菜鸟驿站取件"
         results = parse_sms_multi(sms)
         assert [r.pickup_code for r in results] == ["146-7-7450", "106-2-5266"]
-        assert results[0].station == "厦门厦大海韵学生公寓店菜鸟驿站"
+        assert results[0].station == "星河花园东门店菜鸟驿站"
 
     def test_cainiao_ping_three_codes(self):
-        sms = "【菜鸟驿站】请凭50-2-9084, 62-3-4509, 92-2-2292到厦门厦大海韵学生公寓店菜鸟驿站取件"
+        sms = "【菜鸟驿站】请凭50-2-9084, 62-3-4509, 92-2-2292到星河花园东门店菜鸟驿站取件"
         results = parse_sms_multi(sms)
         assert len(results) == 3
         assert results[2].pickup_code == "92-2-2292"
 
     def test_cainiao_ping_zhi(self):
-        sms = "【菜鸟驿站】请凭92-2-2292至厦门厦大海韵学生公寓店菜鸟驿站尽早取您韵达的包裹"
+        sms = "【菜鸟驿站】请凭92-2-2292至星河花园东门店菜鸟驿站尽早取您韵达的包裹"
         r = parse_sms(sms)
         assert r is not None
         assert r.pickup_code == "92-2-2292"
-        assert r.station == "厦门厦大海韵学生公寓店菜鸟驿站"
+        assert r.station == "星河花园东门店菜鸟驿站"
         assert r.express == "韵达"
 
     def test_tuxi_tihuo_code(self):
-        sms = "【兔喜生活】您提货码37-12-7031的包裹长时间未取，由厦门思明海韵鹭银海店代为签收保管，请及时领取"
+        sms = "【兔喜生活】您提货码37-12-7031的包裹长时间未取，由星河花园兔喜店代为签收保管，请及时领取"
         r = parse_sms(sms)
         assert r is not None
         assert r.pickup_code == "37-12-7031"
-        assert "厦门思明海韵鹭银海店" in r.station
+        assert "星河花园兔喜店" in r.station
 
     def test_tuxi_arrived_no_extra_da(self):
         # "已到达" 中的 "达" 不应混入站名
-        sms = "【兔喜生活】您有包裹已到达厦门思明海韵鹭银海店，取件码为9-2-0401，地址:厦大学生公寓8号楼超市旁"
+        sms = "【兔喜生活】您有包裹已到达星河花园兔喜店，取件码为9-2-0401，地址:星河花园8号楼超市旁"
         r = parse_sms(sms)
         assert r is not None
         assert r.pickup_code == "9-2-0401"
         assert "达" not in r.station
-        assert "厦门思明海韵鹭银海店" in r.station
+        assert "星河花园兔喜店" in r.station
 
     def test_dewu_no_station(self):
         sms = "【得物App】UNKNOWTAL 已在代收点滞留24小时，取件码9-3-6956，请及时取件"
@@ -140,29 +140,29 @@ class TestRealSmsSamples:
         assert "得物" in r.station
 
     def test_kuaibao_ping_lai(self):
-        sms = "【快宝驿站】您的包裹78566511743942已到融创福清壹号2-103店面晟兴到家，请凭K1-9773来取"
+        sms = "【快宝驿站】您的包裹12345678901234已到星河花园2-103店面便民驿站，请凭K1-9773来取"
         r = parse_sms(sms)
         assert r is not None
         assert r.pickup_code == "K1-9773"
-        assert "融创福清壹号2-103店面晟兴到家" in r.station
+        assert "星河花园2-103店面便民驿站" in r.station
 
     def test_kuaibao_ping_dao(self):
-        sms = "【快宝驿站】请凭K1-9773到融创福清壹号2-103店面晟兴到家取您的中通快递包裹"
+        sms = "【快宝驿站】请凭K1-9773到星河花园2-103店面便民驿站取您的中通快递包裹"
         r = parse_sms(sms)
         assert r is not None
         assert r.pickup_code == "K1-9773"
-        assert "融创福清壹号2-103店面晟兴到家" in r.station
+        assert "星河花园2-103店面便民驿站" in r.station
 
     def test_pdd_no_code_ignored(self):
-        sms = "【拼多多】您的快递8258554250215已到菜鸟驿站厦门厦大海韵学生公寓店菜鸟驿站，请凭手机号或运单号取件"
+        sms = "【拼多多】您的快递1234567890123已到菜鸟驿站星河花园东门店菜鸟驿站，请凭手机号或运单号取件"
         assert parse_sms(sms) is None
 
     def test_anti_fraud_ad_ignored(self):
-        sms = "【福建省公安厅 福建省通信管理局】提醒您，刷单就是诈骗！警惕快递内红包二维码，不要下载来源不明的APP"
+        sms = "【某省公安厅 某省通信管理局】提醒您，刷单就是诈骗！警惕快递内红包二维码，不要下载来源不明的APP"
         assert parse_sms(sms) is None
 
     def test_overdue_no_code_ignored(self):
-        sms = "【中通快递】您的快件78966408208972已在兔喜生活厦门思明海韵鹭银海店存放超过5天，请尽快取件"
+        sms = "【中通快递】您的快件23456789012345已在兔喜生活星河花园兔喜店存放超过5天，请尽快取件"
         assert parse_sms(sms) is None
 
     def test_no_header_dai_shou_dian(self):
