@@ -1,143 +1,137 @@
-# 取件码 — 快递取件码自动获取与提醒
+# Pickup Code — Automatic Parcel Pickup-Code Collection and Alerts
 
-自动读取 Mac 上 iMessage 同步的短信，解析菜鸟驿站、兔喜、丰巢、快宝等驿站的取件码，按驿站分组展示在网页上（Mac 浏览器 + iPhone PWA），新取件码到达时通过 Bark 推送到 iPhone 锁屏。
+Pickup Code monitors parcel-notification messages synced to a Mac through iMessage, extracts pickup locations and codes, and presents them in a small web app. New codes can optionally trigger Bark notifications on an iPhone.
 
-## 原理
+The application is local-first: the Messages database and SQLite data remain on the Mac. Use it from a Mac browser, or install it as an iPhone PWA.
 
-所有驿站的取件码统一通过短信到达手机，iPhone 短信经 iMessage 同步到 Mac 的 `~/Library/Messages/chat.db`。本服务监控该数据库，新短信到达即解析入库。
+## Architecture
 
+```text
+iPhone SMS ── iMessage sync ──> Mac ~/Library/Messages/chat.db
+                                       |
+                                Python background service
+                                ├─ sms_monitor  watches chat.db
+                                ├─ parser       extracts locations and pickup codes
+                                ├─ database     SQLite storage and deduplication
+                                ├─ notifier     Bark notifications
+                                └─ FastAPI      API and static frontend
+                                       |
+                        Mac browser / iPhone PWA / Vercel frontend
 ```
-iPhone 短信 ──iMessage 同步──> Mac chat.db
-                                   │
-                          Mac 后台服务 (Python)
-                          ├─ sms_monitor  监控 chat.db（watchdog + 30s 轮询）
-                          ├─ parser       正则提取 驿站名 + 取件码
-                          ├─ database     SQLite 存储 + 去重
-                          ├─ notifier     Bark 推送
-                          └─ FastAPI      http://<Mac IP>:8787
-                                   │
-                     Mac 浏览器 / iPhone PWA（添加到主屏幕）
-```
 
-## 快速开始
+For remote access, Vercel serves only the static frontend. Requests under `/api/*` are securely rewritten through Tailscale Funnel to the FastAPI service that continues running on the Mac.
+
+## Requirements
+
+- macOS with Messages signed in to iMessage
+- Python 3.10 or later
+- An iPhone with SMS forwarding enabled for the Mac
+- Optional: [Bark](https://apps.apple.com/app/id1403753865) for push notifications
+- Optional: Tailscale and Vercel for secure remote access
+
+## Quick Start
 
 ```bash
 ./scripts/run.sh
 ```
 
-1. 浏览器打开 `http://localhost:8787`
-2. **首次运行需授权短信读取**（见下节）
-3. iPhone 打开 `http://<Mac 局域网 IP>:8787` → Safari 分享 → 添加到主屏幕
+1. Open `http://localhost:8787` in a browser.
+2. Grant Messages access the first time you run the service (see below).
+3. On an iPhone in the same local network, open `http://<mac-lan-ip>:8787`, tap **Share** in Safari, then choose **Add to Home Screen**.
 
-> **环境要求**：Python ≥ 3.10（本服务使用 `X | None` 类型标注语法）。
+## Grant Full Disk Access
 
-## TCC 授权（首次必做，最关键一步）
+macOS privacy controls can block access to `~/Library/Messages/chat.db`. If the log says that the Messages database cannot be opened, or the API returns no data:
 
-macOS 隐私保护会拦截对 chat.db 的读取。服务日志出现 `无法打开短信数据库` 或 API 一直为空时，执行：
+1. Open **System Settings → Privacy & Security → Full Disk Access**.
+2. Add and enable **Terminal**, plus the app you use to run the service (such as VS Code).
+3. Restart the service with `./scripts/run.sh`.
+4. Check `http://localhost:8787/api/packages?status=pending` for parsed records.
 
-1. 打开 **系统设置 → 隐私与安全性 → 完全磁盘访问权限**
-2. 点击 **+**，添加并勾选 **终端**（以及你用来启动服务的 App，如 VS Code）
-3. 重启服务：`Ctrl+C` 后重新 `./scripts/run.sh`
-4. 验证：`curl "http://localhost:8787/api/packages?status=pending"` 能看到短信解析出的记录
+## Enable iPhone-to-Mac Message Sync
 
-## 前提：iPhone 短信同步到 Mac
+- In macOS **Messages**, confirm that you are signed in to iMessage.
+- On iPhone, go to **Settings → Messages → Text Message Forwarding** and enable this Mac.
+- Confirm that `~/Library/Messages/chat.db` exists and that new messages appear in Messages on the Mac.
 
-- Mac 上打开"信息"App，确认已登录 iMessage（`信息 → 设置 → iMessage 信息`）
-- iPhone：`设置 → 信息 → 短信转发`，勾选你的 Mac
-- 检查方式：`~/Library/Messages/chat.db` 存在且最近有新短信（服务日志无 `短信数据库不存在` 警告）
+## Features
 
-## 手机锁屏提醒（可选）
+- Pending and picked-up tabs; picked-up records can be restored.
+- Pickup-station grouping, newest-first ordering, and pagination.
+- One-click pickup status changes and confirmed record deletion.
+- Manual entry for parcel messages that do not include a code.
+- Automatic deduplication of matching station-and-code records on the same day.
+- Background message monitoring plus a 30-second browser refresh.
 
-新取件码到达时，可以直接在 iPhone 锁屏上弹出提醒，不用打开网页也能第一时间看到。
+## Optional Bark Notifications
 
-1. iPhone 的 App Store 搜索并安装免费 App「[Bark](https://apps.apple.com/app/id1403753865)」
-2. 打开 Bark，复制首页顶部网址的最后一段字母数字（如 `https://api.day.app/abcdef` 中的 `abcdef`）
-3. 网页右上角 → 设置 → 粘贴到输入框 → 点「发一条测试提醒」验证
+1. Install [Bark](https://apps.apple.com/app/id1403753865) from the App Store.
+2. Copy the device key from the URL shown in the Bark app.
+3. In Pickup Code, open **Settings**, paste the key, and send a test notification.
 
-不想设置就留空，不影响网页使用。
+Leaving the field blank does not affect the web app.
 
-## 使用说明
+## Optional Access Token
 
-- **两个 Tab**：未取件（默认）/ 已取件（可撤销）
-- **分组排序**：按驿站分组，组内按到达时间倒序；组间按该站最新包裹时间倒序
-- **每页 10 条**，驿站跨页时组头在下一页重复显示
-- **标记已取**：点"已取"按钮实时从未取列表移除；"已取件"Tab 可撤销
-- **手动添加**：顶栏 + 按钮，填驿站名和取件码（拼多多等无码短信的补漏入口）
-- **删除记录**：每条记录右侧"删除"按钮（需确认）。同一驿站同一天重复到达的相同取件码会自动合并显示，删除时一并删除
-- **自动刷新**：页面 30 秒轮询 + 新短信实时监听
+By default, no access token is required, which is suitable only for a trusted local network. To protect the service, set the `QJK_TOKEN` environment variable to a strong random value before running `./scripts/run.sh`.
 
-## 访问口令（可选）
+When protection is enabled, enter the same value in **Settings → Access Token** on each browser or device. The value is stored only in that browser's local storage and is sent with API requests.
 
-默认**不启用**访问口令，网页打开即用（适合家庭内网）。如需加一道口令：
+Never commit a real access token, Bark device key, or other credential to the repository.
 
-```bash
-QJK_TOKEN=你的口令 ./scripts/run.sh
-```
+## iPhone PWA Notes
 
-启用后，电脑和手机的浏览器打开网页都会提示"未授权"，需在网页 设置 → 访问口令 中填入相同口令。口令保存在各设备浏览器本地，之后自动带上。
+- Adding the site to the Home Screen opens it in an app-like standalone window.
+- iOS permits service workers only on HTTPS. A local-network HTTP address therefore has no offline cache, but normal online use is unaffected.
+- If a page loads slowly, pull to refresh or reopen it.
 
-> 提示：启用口令后，网页在请求数据收到"未授权"时会自动跳到设置页引导填写。
+## GitHub + Vercel + Tailscale Funnel
 
-## 手机端（iPhone PWA）注意事项
+The complete backend cannot run on Vercel: iMessage access, SQLite storage, and SMS monitoring must remain on the Mac. The production layout is **Vercel static frontend + Tailscale Funnel + Mac FastAPI**.
 
-- 添加到主屏幕后以独立窗口打开，体验与 App 一致
-- **局限**：iOS 只允许 HTTPS 页面注册 Service Worker，局域网 HTTP 下无法启用离线缓存，页面每次打开都实时从 Mac 获取数据——正常使用不受影响，只是断网时打不开
-- 若网络不佳加载缓慢，可下拉刷新或重开页面
+1. Start the protected Mac service after setting a strong `QJK_TOKEN` value. Keep the Mac powered on and the service running.
+2. Install the standalone macOS version of Tailscale, sign in, install its CLI integration, and run:
 
-## 已知限制
+   ```bash
+   tailscale funnel --bg 8787
+   tailscale funnel status
+   ```
 
-- **拼多多短信不含取件码**（只有运单号），无法自动解析——这类包裹的取件码由驿站另行发送（菜鸟等），收到即自动入库；确无短信时可手动添加
-- **30 天窗口**：只处理最近 30 天的短信，更早的历史短信不导入
-- **短信同步中断**：若 Mac 的 iMessage 长期未收到短信（服务日志显示扫描到 0 条新短信），检查上面"前提"一节
-- 蜂窝网络（外出）时无法访问局域网网页，由 Bark 推送覆盖提醒场景
+   Funnel should expose only the local FastAPI service on `127.0.0.1:8787` over HTTPS.
 
-## 测试
+3. Import the private GitHub repository into Vercel with these settings:
 
-```bash
-.venv/bin/python -m pytest server/tests/
-```
+   - **Root Directory:** `web`
+   - **Framework Preset:** `Other`
+   - **Build Command:** leave unset
+   - **Output Directory:** `.`
 
-99 个测试覆盖：解析（含虚构化的多平台短信文案样本）、去重（含一条短信多取件码、手动/短信互不干扰）、分页分组排序、监控（游标恢复、混合时间刻度、回填不推送）、状态流转、API、鉴权、Bark 推送（mock 网络）。
+4. In the deployed app, save the same access token in **Settings**.
 
-## GitHub + Vercel 部署
+If the Funnel hostname changes, update the rewrite origin in `web/vercel.json` and redeploy.
 
-本应用不能将完整后端运行在 Vercel：iMessage 数据库、SQLite 和短信监听必须保留在 Mac。部署架构为“Vercel 静态前端 + Tailscale Funnel + Mac FastAPI”。
+## Limitations
 
-### 1. 启动受保护的 Mac 后端
+- Some parcel messages, such as messages containing only a tracking number, do not include a pickup code. Add those records manually if a later pickup-code message does not arrive.
+- The monitor imports only the most recent 30 days of messages.
+- If iMessage stops syncing to the Mac, no new codes can be collected until sync resumes.
+- A phone can access the Vercel site over cellular data, but the Mac backend must still be online and reachable through Funnel.
 
-```bash
-QJK_TOKEN='请使用高强度随机口令' ./scripts/run.sh
-```
-
-不要将真实口令写入仓库。Mac 必须保持开机，且该服务必须持续运行。
-
-### 2. 启用 Tailscale Funnel
-
-安装 Tailscale Standalone macOS 版本，登录后安装 CLI integration，然后执行：
+## Tests
 
 ```bash
-tailscale funnel --bg 8787
-tailscale funnel status
+.venv/bin/python -m pytest server/tests/ -q
 ```
 
-首次启用会打开 Funnel 授权页。它只应把 HTTPS 请求转发到 `http://127.0.0.1:8787`。
+The suite contains 99 tests covering message parsing, deduplication, grouping and pagination, monitor recovery, API routes, authentication, state changes, and mocked Bark notifications.
 
-### 3. 导入 Vercel
+## Stack
 
-1. 将仓库保持为 GitHub Private。
-2. 在 Vercel 导入 GitHub 仓库。
-3. 设置 `Root Directory = web`。
-4. 设置 `Framework Preset = Other`。
-5. 不设置 Build Command，`Output Directory = .`。
-6. 部署后在网页“设置”中填入 Mac 后端使用的同一个访问口令。
+Python, FastAPI, SQLite, watchdog, vanilla JavaScript, PWA, Bark, Tailscale Funnel, and Vercel. The app has no frontend CDN dependency; Bark is the only outbound integration when notifications are enabled.
 
-### 故障排查
+## Security
 
-- 页面能打开但数据加载失败：检查 Mac 是否休眠、`scripts/run.sh` 是否运行。
-- 本地能访问但 Vercel 不能：运行 `tailscale funnel status` 检查 Funnel。
-- 返回 `401`：网页保存的访问口令与 Mac 启动口令不一致。
-- Funnel 主机名变更：更新 `web/vercel.json` 中的 Rewrite origin 并重新部署。
-
-## 技术栈
-
-Python + FastAPI + SQLite + watchdog + 原生 JS + PWA + Bark。运行时不依赖任何外部服务（唯一的外网请求是启用 Bark 后的推送调用），网页无 CDN 依赖，可完全离线使用。
+- Keep the GitHub repository private if it contains deployment details.
+- Do not expose the FastAPI service directly to the public internet; use Tailscale Funnel as configured.
+- Never commit `QJK_TOKEN`, Bark keys, `data/`, `~/Library/Messages/chat.db`, or real SMS contents.
+- Do not place secrets in source files, README examples, commits, or screenshots.
